@@ -17,8 +17,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# Title and introduction
-st.title("🤖 AI Investment ROI Calculator and Work Redesigner")
+# Logo and title
+col_logo, col_title = st.columns([1, 6])
+with col_logo:
+    st.image("tcb_logoUpdate.png", width=180)
+with col_title:
+    st.title("🤖 AI Investment ROI Calculator and Work Redesigner")
 st.markdown("""
 ### The Value of AI Depends on Work Design, Not Just Technology
 
