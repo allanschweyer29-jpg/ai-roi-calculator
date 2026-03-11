@@ -242,14 +242,15 @@ df = pd.DataFrame(results)
 df["cumulative_value"] = df["net_value"].cumsum()
 
 # Main content area
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📈 Executive Summary",
     "💰 Value Over Time",
     "🔍 Sensitivity Analysis",
     "⚙️ Work Design Impact",
     "📊 Detailed Breakdown",
     "📋 Metrics Guide",
-    "🔬 Task Deconstruction"
+    "🔬 Task Deconstruction",
+    "🏗️ Redeployment Dashboard"
 ])
 
 with tab1:
@@ -1208,6 +1209,138 @@ with tab7:
 
     else:
         st.info("Add tasks above to begin your task deconstruction analysis.")
+
+
+with tab8:
+    st.header("Redeployment Dashboard")
+
+    st.markdown("""
+    A headline view of redeployment opportunity across your organization, combining task-level
+    analysis with your ROI model inputs.
+    """)
+
+    has_tasks = "tasks" in st.session_state and len(st.session_state.tasks) > 0
+
+    if has_tasks:
+        tasks_df_dash = pd.DataFrame(st.session_state.tasks)
+
+        def get_potential_dash(row):
+            score = (row["repetitive"] * 0.35 +
+                     (100 - row["physical"]) * 0.15 +
+                     row["independent"] * 0.25 +
+                     row["deterministic"] * 0.25)
+            if score >= 65:
+                return "High"
+            elif score >= 40:
+                return "Medium"
+            else:
+                return "Low"
+
+        def get_ai_type_dash(row):
+            if row["repetitive"] >= 70 and row["deterministic"] >= 70:
+                return "RPA"
+            elif row["independent"] >= 60 and row["deterministic"] >= 55:
+                return "Machine Learning"
+            else:
+                return "GenAI"
+
+        tasks_df_dash["potential"] = tasks_df_dash.apply(get_potential_dash, axis=1)
+        tasks_df_dash["ai_type"] = tasks_df_dash.apply(get_ai_type_dash, axis=1)
+
+        tasks_analyzed = len(tasks_df_dash)
+        high_potential = tasks_df_dash[tasks_df_dash["potential"] == "High"]
+        medium_potential = tasks_df_dash[tasks_df_dash["potential"] == "Medium"]
+        hours_released = high_potential["time_pct"].sum() * team_size * 2000 / 100
+        headcount_to_redeploy = max(1, round(hours_released / 2000))
+        cost_savings = high_potential["annual_cost"].sum()
+        productivity_gain = params["pm"][2]
+
+    else:
+        # Fall back to main calculator estimates
+        tasks_analyzed = 0
+        hours_released = hours_savable * adoption_curve[2]
+        headcount_to_redeploy = max(1, round(hours_released / 2000))
+        cost_savings = total_18mo_value
+        productivity_gain = params["pm"][2]
+
+    # Headline metrics — styled like Mercer's project status bar
+    st.markdown("### Project Status")
+    c1, c2, c3, c4, c5 = st.columns(5)
+
+    with c1:
+        st.metric("Tasks Analyzed", tasks_analyzed if has_tasks else "—")
+    with c2:
+        st.metric("Headcount to Redeploy", headcount_to_redeploy)
+    with c3:
+        st.metric("Working Hours Released", f"{hours_released:,.0f}")
+    with c4:
+        st.metric("Cost Savings", f"${cost_savings:,.0f}")
+    with c5:
+        st.metric("Avg Productivity Gain", f"{productivity_gain:.0%}")
+
+    st.markdown("---")
+
+    if has_tasks:
+        col_left, col_right = st.columns(2)
+
+        with col_left:
+            potential_counts = tasks_df_dash["potential"].value_counts().reindex(
+                ["High", "Medium", "Low"], fill_value=0)
+            fig_redeploy = go.Figure(go.Bar(
+                x=["High Potential", "Medium Potential", "Low Potential"],
+                y=potential_counts.values,
+                marker_color=["#2ca02c", "#ff7f0e", "#d62728"],
+                text=[f"{v} tasks\n({v/len(tasks_df_dash)*100:.0f}%)" for v in potential_counts.values],
+                textposition="outside"
+            ))
+            fig_redeploy.update_layout(
+                title="Opportunities to Redeploy by Task",
+                yaxis_title="Number of Tasks",
+                height=380,
+                showlegend=False
+            )
+            st.plotly_chart(fig_redeploy, width="stretch")
+
+        with col_right:
+            ai_counts = tasks_df_dash["ai_type"].value_counts()
+            fig_ai_dash = go.Figure(go.Pie(
+                labels=ai_counts.index,
+                values=ai_counts.values,
+                hole=0.4,
+                marker_colors=["#1f77b4", "#ff7f0e", "#2ca02c"]
+            ))
+            fig_ai_dash.update_layout(
+                title="Suggested Redeployment Type for High-Potential Tasks",
+                height=380
+            )
+            st.plotly_chart(fig_ai_dash, width="stretch")
+
+        # Task-level redeployment table
+        st.subheader("Task Redeployment Summary")
+        summary = tasks_df_dash[[
+            "task", "skill", "time_pct", "annual_cost", "potential", "ai_type"
+        ]].copy()
+        summary.columns = ["Task", "Primary Skill", "Time %", "Annual Cost", "Potential", "AI Type"]
+        summary["Annual Cost"] = summary["Annual Cost"].apply(lambda x: f"${x:,.0f}")
+        summary = summary.sort_values("Potential", key=lambda x: x.map({"High": 0, "Medium": 1, "Low": 2}))
+        st.dataframe(summary, width="stretch", hide_index=True)
+
+    else:
+        st.info("Complete the **Task Deconstruction** tab first to see task-level redeployment analysis. The metrics above are estimated from your ROI model inputs.")
+
+        # Show a projection chart based on main calculator
+        st.subheader("Projected Hours Released Over Time")
+        fig_hrs = go.Figure(go.Bar(
+            x=[f"Month {m}" for m in df["month"]],
+            y=df["hours_saved"],
+            marker_color="#1f77b4"
+        ))
+        fig_hrs.update_layout(
+            xaxis_title="Month",
+            yaxis_title="Hours Released",
+            height=350
+        )
+        st.plotly_chart(fig_hrs, width="stretch")
 
 
 # Footer
