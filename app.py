@@ -242,7 +242,7 @@ df = pd.DataFrame(results)
 df["cumulative_value"] = df["net_value"].cumsum()
 
 # Main content area
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
     "📈 Executive Summary",
     "💰 Value Over Time",
     "🔍 Sensitivity Analysis",
@@ -251,7 +251,9 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "📋 Metrics Guide",
     "🔬 Task Deconstruction",
     "🏗️ Redeployment Dashboard",
-    "🤖 AI Type Recommender"
+    "🤖 AI Type Recommender",
+    "🎯 Urgency vs Readiness",
+    "🗺️ Value Framework"
 ])
 
 with tab1:
@@ -1488,6 +1490,288 @@ with tab9:
         st.markdown("#### 🟣 AI Agent")
         st.markdown("**Best when:** Multi-step workflows require planning, judgment, and action across systems")
         st.markdown("**Avoid when:** Tasks are purely deterministic, high-stakes with no human review, or audit trails are essential")
+
+
+with tab10:
+    st.header("Urgency vs. Readiness Matrix")
+    st.markdown("""
+    Plot your AI use cases on a 2×2 matrix to prioritize where to invest first.
+    **Urgency** reflects business pressure to act. **Readiness** reflects your organization's
+    capability to execute — data quality, skills, process maturity, and culture.
+    """)
+
+    if "use_cases" not in st.session_state:
+        st.session_state.use_cases = []
+
+    col_uc_form, col_uc_chart = st.columns([1, 2])
+
+    with col_uc_form:
+        st.subheader("Add a Use Case")
+        uc_name = st.text_input("Use Case Name", placeholder="e.g. Invoice Automation", key="uc_name")
+        uc_urgency = st.slider("Business Urgency", 0, 100, 50,
+                               help="100 = critical business need right now; 0 = nice to have someday",
+                               key="uc_urgency")
+        uc_readiness = st.slider("Organizational Readiness", 0, 100, 50,
+                                 help="100 = data, skills, and culture fully in place; 0 = starting from scratch",
+                                 key="uc_readiness")
+        uc_ai_type = st.selectbox("AI Type", ["RPA", "Machine Learning", "GenAI", "AI Agent"], key="uc_ai_type")
+
+        if st.button("Add Use Case") and uc_name.strip():
+            st.session_state.use_cases.append({
+                "name": uc_name.strip(),
+                "urgency": uc_urgency,
+                "readiness": uc_readiness,
+                "ai_type": uc_ai_type
+            })
+            st.rerun()
+
+        if st.session_state.use_cases:
+            st.markdown("**Use Cases Added:**")
+            for i, uc in enumerate(st.session_state.use_cases):
+                col_uc_label, col_uc_del = st.columns([4, 1])
+                with col_uc_label:
+                    st.markdown(f"• **{uc['name']}** ({uc['ai_type']})")
+                with col_uc_del:
+                    if st.button("✕", key=f"del_uc_{i}"):
+                        st.session_state.use_cases.pop(i)
+                        st.rerun()
+
+            if st.button("🗑️ Clear All Use Cases"):
+                st.session_state.use_cases = []
+                st.rerun()
+
+    with col_uc_chart:
+        def make_matrix_fig(points=None):
+            fig = go.Figure()
+            fig.add_shape(type="rect", x0=50, y0=50, x1=100, y1=100,
+                          fillcolor="rgba(44,160,44,0.10)", line_width=0)
+            fig.add_shape(type="rect", x0=0, y0=50, x1=50, y1=100,
+                          fillcolor="rgba(255,127,14,0.10)", line_width=0)
+            fig.add_shape(type="rect", x0=50, y0=0, x1=100, y1=50,
+                          fillcolor="rgba(31,119,180,0.10)", line_width=0)
+            fig.add_shape(type="rect", x0=0, y0=0, x1=50, y1=50,
+                          fillcolor="rgba(214,39,40,0.10)", line_width=0)
+            fig.add_shape(type="line", x0=50, y0=0, x1=50, y1=100,
+                          line=dict(color="gray", dash="dash", width=1))
+            fig.add_shape(type="line", x0=0, y0=50, x1=100, y1=50,
+                          line=dict(color="gray", dash="dash", width=1))
+            fig.add_annotation(x=75, y=96, text="⚡ Act Now", showarrow=False,
+                               font=dict(color="#2ca02c", size=13))
+            fig.add_annotation(x=25, y=96, text="🔨 Build Capability Fast", showarrow=False,
+                               font=dict(color="#ff7f0e", size=13))
+            fig.add_annotation(x=75, y=4, text="🎯 Quick Win / Pilot", showarrow=False,
+                               font=dict(color="#1f77b4", size=13))
+            fig.add_annotation(x=25, y=4, text="⏳ Deprioritize", showarrow=False,
+                               font=dict(color="#d62728", size=13))
+            if points is not None:
+                q_colors = {
+                    "Act Now": "#2ca02c",
+                    "Build Capability Fast": "#ff7f0e",
+                    "Quick Win / Pilot": "#1f77b4",
+                    "Deprioritize": "#d62728"
+                }
+                for _, row in points.iterrows():
+                    fig.add_trace(go.Scatter(
+                        x=[row["readiness"]], y=[row["urgency"]],
+                        mode="markers+text",
+                        marker=dict(size=16, color=q_colors[row["quadrant"]]),
+                        text=[row["name"]], textposition="top center",
+                        showlegend=False,
+                        hovertemplate=(
+                            f"<b>{row['name']}</b><br>"
+                            f"Urgency: {row['urgency']}<br>"
+                            f"Readiness: {row['readiness']}<br>"
+                            f"AI Type: {row['ai_type']}<br>"
+                            f"Quadrant: {row['quadrant']}<extra></extra>"
+                        )
+                    ))
+            fig.update_layout(
+                xaxis=dict(title="Organizational Readiness →", range=[0, 100]),
+                yaxis=dict(title="Business Urgency →", range=[0, 100]),
+                height=500,
+                plot_bgcolor="white",
+                paper_bgcolor="white"
+            )
+            return fig
+
+        if st.session_state.use_cases:
+            uc_df = pd.DataFrame(st.session_state.use_cases)
+
+            def quadrant_label(row):
+                if row["urgency"] >= 50 and row["readiness"] >= 50:
+                    return "Act Now"
+                elif row["urgency"] >= 50 and row["readiness"] < 50:
+                    return "Build Capability Fast"
+                elif row["urgency"] < 50 and row["readiness"] >= 50:
+                    return "Quick Win / Pilot"
+                else:
+                    return "Deprioritize"
+
+            uc_df["quadrant"] = uc_df.apply(quadrant_label, axis=1)
+            st.plotly_chart(make_matrix_fig(uc_df), width="stretch")
+
+            st.markdown("---")
+            st.subheader("Use Case Summary")
+            summary_df = uc_df[["name", "ai_type", "urgency", "readiness", "quadrant"]].copy()
+            summary_df.columns = ["Use Case", "AI Type", "Urgency", "Readiness", "Quadrant"]
+            summary_df = summary_df.sort_values("Urgency", ascending=False)
+            st.dataframe(summary_df, width="stretch", hide_index=True)
+        else:
+            st.info("Add use cases on the left to populate the matrix.")
+            st.plotly_chart(make_matrix_fig(), width="stretch")
+
+
+with tab11:
+    st.header("Three-Step AI Value Framework")
+    st.markdown("""
+    AI value doesn't come from the technology — it comes from **how you manage work, people,
+    and governance around it**. These three steps turn AI potential into realized ROI.
+    """)
+
+    has_tasks_fw = "tasks" in st.session_state and len(st.session_state.tasks) > 0
+    tasks_df_fw = pd.DataFrame(st.session_state.tasks) if has_tasks_fw else pd.DataFrame()
+
+    def fw_score(row):
+        return (row["repetitive"] * 0.35 + (100 - row["physical"]) * 0.15 +
+                row["independent"] * 0.25 + row["deterministic"] * 0.25)
+
+    # Step cards
+    s1, arr1, s2, arr2, s3 = st.columns([3, 0.4, 3, 0.4, 3])
+
+    step1_done = has_tasks_fw
+    step2_done = has_tasks_fw
+    step3_done = True
+
+    def step_style(done):
+        c = "#2ca02c" if done else "#aaaaaa"
+        return c, f"{c}18"
+
+    c1, bg1 = step_style(step1_done)
+    c2, bg2 = step_style(step2_done)
+    c3, bg3 = step_style(step3_done)
+
+    with s1:
+        st.markdown(f"""
+        <div style="border:2px solid {c1}; border-radius:12px; padding:20px;
+                    background:{bg1}; min-height:180px;">
+            <div style="color:{c1}; font-size:1.1em; font-weight:bold;">STEP 1</div>
+            <h3 style="margin:4px 0;">🔬 Map Work</h3>
+            <p style="font-size:0.9em;">Deconstruct tasks. Identify what is repetitive,
+            deterministic, and automatable. Score each task for AI redeployment potential.</p>
+            <p style="font-size:0.8em; color:#666;">→ Task Deconstruction tab</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("")
+        if step1_done:
+            high_fw = len(tasks_df_fw[tasks_df_fw.apply(fw_score, axis=1) >= 65])
+            st.metric("Tasks Mapped", len(tasks_df_fw))
+            st.metric("High-Potential Tasks", high_fw)
+        else:
+            st.info("Add tasks in the Task Deconstruction tab to activate Step 1.")
+
+    with arr1:
+        st.markdown("<div style='text-align:center; padding-top:70px; font-size:2.5em;'>→</div>",
+                    unsafe_allow_html=True)
+
+    with s2:
+        st.markdown(f"""
+        <div style="border:2px solid {c2}; border-radius:12px; padding:20px;
+                    background:{bg2}; min-height:180px;">
+            <div style="color:{c2}; font-size:1.1em; font-weight:bold;">STEP 2</div>
+            <h3 style="margin:4px 0;">🏗️ Redesign Roles</h3>
+            <p style="font-size:0.9em;">Redeploy freed capacity to higher-value work. Plan
+            headcount transitions, reskilling, and new workflows around AI.</p>
+            <p style="font-size:0.8em; color:#666;">→ Redeployment Dashboard tab</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("")
+        if step2_done:
+            hours_fw = tasks_df_fw[tasks_df_fw.apply(fw_score, axis=1) >= 65]["time_pct"].sum() * team_size * 2000 / 100
+            hc_fw = max(1, round(hours_fw / 2000))
+            st.metric("Hours to Release", f"{hours_fw:,.0f}")
+            st.metric("FTE to Redeploy", hc_fw)
+        else:
+            st.info("Complete Step 1 first.")
+
+    with arr2:
+        st.markdown("<div style='text-align:center; padding-top:70px; font-size:2.5em;'>→</div>",
+                    unsafe_allow_html=True)
+
+    with s3:
+        st.markdown(f"""
+        <div style="border:2px solid {c3}; border-radius:12px; padding:20px;
+                    background:{bg3}; min-height:180px;">
+            <div style="color:{c3}; font-size:1.1em; font-weight:bold;">STEP 3</div>
+            <h3 style="margin:4px 0;">📊 Govern & Measure</h3>
+            <p style="font-size:0.9em;">Track adoption rates, measure ROI, and adjust work
+            design parameters. The variables that matter most are about governance, not tech.</p>
+            <p style="font-size:0.8em; color:#666;">→ ROI Calculator tabs</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("")
+        phase3_hours = hours_savable * adoption_curves[adoption_speed][2]
+        phase3_value = phase3_hours * hourly_rate * params["rr"][2] * (1 + params["pm"][2]) * (1 + params["qp"][2])
+        st.metric("Hours Freed at Full Adoption", f"{phase3_hours:,.0f}")
+        st.metric("Est. Annual Value (Phase 3)", f"${phase3_value * 12:,.0f}")
+
+    st.markdown("---")
+    st.subheader("The Value Equation")
+    st.markdown(f"""
+    <div style="background:#f8f9fa; border-radius:8px; padding:20px; text-align:center;
+                font-family:monospace; font-size:1.05em; line-height:2;">
+        Monthly Value = [HS × Rate ×
+        <span style="color:#e74c3c; font-weight:bold;">RR</span> ×
+        (1 + <span style="color:#e74c3c; font-weight:bold;">PM</span>) ×
+        (1 + <span style="color:#e74c3c; font-weight:bold;">QP</span>)] +
+        <span style="color:#e74c3c; font-weight:bold;">IV</span> − (RC + CO)
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("")
+    col_tech, col_design = st.columns(2)
+    with col_tech:
+        st.markdown("#### Technology Variables *(not the differentiators)*")
+        st.markdown("""
+        - **HS** — Hours Savable (what AI can theoretically free)
+        - **Rate** — Adoption speed (how fast the org adopts)
+        - **RC** — Technology cost
+        - **CO** — Coordination overhead
+        """)
+    with col_design:
+        st.markdown("#### Work Design Variables *(the real differentiators)*")
+        st.markdown(f"""
+        - **RR** — Redeployment Rate: **{params['rr'][2]*100:.0f}%** of freed time reinvested
+        - **PM** — Productivity Multiplier: **+{params['pm'][2]*100:.0f}%** on reinvested work
+        - **QP** — Quality Premium: **+{params['qp'][2]*100:.0f}%** quality uplift
+        - **IV** — Innovation Value: **${params['iv_peak']:,.0f}/mo** at maturity
+        """)
+
+    st.markdown("---")
+    st.subheader("Why Redeployment Rate Matters More Than the AI Itself")
+    st.markdown("Same technology, same team size, same AI — different work design decisions.")
+
+    rr_values = [0.2, 0.4, 0.6, 0.8, 1.0]
+    base_hours_fw = hours_savable * adoption_curves[adoption_speed][2]
+    annual_values_fw = [
+        base_hours_fw * hourly_rate * rr * (1 + params["pm"][2]) * (1 + params["qp"][2]) * 12
+        for rr in rr_values
+    ]
+
+    fig_rr = go.Figure(go.Bar(
+        x=[f"{int(r*100)}%" for r in rr_values],
+        y=annual_values_fw,
+        marker_color=["#d62728", "#ff7f0e", "#ffbb78", "#98df8a", "#2ca02c"],
+        text=[f"${v:,.0f}" for v in annual_values_fw],
+        textposition="outside"
+    ))
+    fig_rr.update_layout(
+        xaxis_title="Redeployment Rate (% of freed hours reinvested in value work)",
+        yaxis_title="Annual Value ($)",
+        height=380,
+        showlegend=False,
+        yaxis_range=[0, max(annual_values_fw) * 1.2]
+    )
+    st.plotly_chart(fig_rr, width="stretch")
 
 
 # Footer
