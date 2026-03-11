@@ -242,13 +242,14 @@ df = pd.DataFrame(results)
 df["cumulative_value"] = df["net_value"].cumsum()
 
 # Main content area
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "📈 Executive Summary", 
-    "💰 Value Over Time", 
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "📈 Executive Summary",
+    "💰 Value Over Time",
     "🔍 Sensitivity Analysis",
     "⚙️ Work Design Impact",
     "📊 Detailed Breakdown",
-    "📋 Metrics Guide"
+    "📋 Metrics Guide",
+    "🔬 Task Deconstruction"
 ])
 
 with tab1:
@@ -1048,6 +1049,166 @@ with tab6:
     - Team capability and readiness for new responsibilities
     - Strategic intent (efficiency vs. innovation focus)
     """)
+
+with tab7:
+    st.header("Task Deconstruction")
+
+    st.markdown("""
+    Break down your team's work into individual tasks and assess each one for AI redeployment potential.
+    Rate each task across four dimensions to understand automation opportunity and the best AI approach.
+    """)
+
+    if "tasks" not in st.session_state:
+        st.session_state.tasks = []
+
+    with st.expander("➕ Add a Task", expanded=len(st.session_state.tasks) == 0):
+        with st.form("add_task_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                task_name = st.text_input("Task Name", placeholder="e.g. Monthly expense report")
+                primary_skill = st.text_input("Primary Skill", placeholder="e.g. Financial Analysis")
+            with col2:
+                time_pct = st.slider("% of Role Time", 1, 100, 10)
+
+            st.markdown("**Rate this task on each dimension (0% = Low, 100% = High)**")
+            col3, col4 = st.columns(2)
+            with col3:
+                repetitive = st.slider("Repetitive (vs. Variable)", 0, 100, 50,
+                                       help="How repetitive and rule-based is this task?")
+                physical = st.slider("Physical (vs. Mental)", 0, 100, 20,
+                                     help="How physical vs. cognitive is the work?")
+            with col4:
+                independent = st.slider("Independent (vs. Interactive)", 0, 100, 50,
+                                        help="How independently can this be done without human judgment?")
+                deterministic = st.slider("Deterministic (vs. Probabilistic)", 0, 100, 50,
+                                          help="How rule-based vs. judgment-based is this task?")
+
+            submitted = st.form_submit_button("Add Task")
+            if submitted and task_name:
+                annual_cost = avg_compensation * (time_pct / 100) * team_size
+                st.session_state.tasks.append({
+                    "task": task_name,
+                    "skill": primary_skill,
+                    "time_pct": time_pct,
+                    "annual_cost": annual_cost,
+                    "repetitive": repetitive,
+                    "physical": physical,
+                    "independent": independent,
+                    "deterministic": deterministic,
+                })
+
+    if st.session_state.tasks:
+        tasks_df = pd.DataFrame(st.session_state.tasks)
+
+        def get_redeployment_potential(row):
+            score = (row["repetitive"] * 0.35 +
+                     (100 - row["physical"]) * 0.15 +
+                     row["independent"] * 0.25 +
+                     row["deterministic"] * 0.25)
+            if score >= 65:
+                return "High"
+            elif score >= 40:
+                return "Medium"
+            else:
+                return "Low"
+
+        def get_ai_type(row):
+            if row["repetitive"] >= 70 and row["deterministic"] >= 70:
+                return "RPA"
+            elif row["independent"] >= 60 and row["deterministic"] >= 55:
+                return "Machine Learning"
+            else:
+                return "GenAI"
+
+        def get_objective(row):
+            if row["repetitive"] >= 70:
+                return "Reduce Variance"
+            elif row["deterministic"] < 40:
+                return "Enhance Precision"
+            elif row["physical"] < 30:
+                return "Improve Productivity"
+            else:
+                return "Increase Efficiency"
+
+        tasks_df["potential"] = tasks_df.apply(get_redeployment_potential, axis=1)
+        tasks_df["ai_type"] = tasks_df.apply(get_ai_type, axis=1)
+        tasks_df["objective"] = tasks_df.apply(get_objective, axis=1)
+
+        # Summary metrics
+        st.markdown("### Project Status")
+        col1, col2, col3, col4 = st.columns(4)
+        high_count = len(tasks_df[tasks_df["potential"] == "High"])
+        high_cost = tasks_df[tasks_df["potential"] == "High"]["annual_cost"].sum()
+        hours_releasable = tasks_df[tasks_df["potential"] == "High"]["time_pct"].sum() * team_size * 2000 / 100
+        total_cost = tasks_df["annual_cost"].sum()
+
+        with col1:
+            st.metric("Tasks Analyzed", len(tasks_df))
+        with col2:
+            st.metric("High Potential Tasks", high_count)
+        with col3:
+            st.metric("Cost in High-Potential Tasks", f"${high_cost:,.0f}")
+        with col4:
+            st.metric("Hours Releasable", f"{hours_releasable:,.0f}")
+
+        st.markdown("---")
+
+        # Task table
+        st.subheader("Task Analysis")
+        display_tasks = tasks_df[[
+            "task", "skill", "time_pct", "annual_cost",
+            "repetitive", "deterministic", "independent",
+            "potential", "ai_type", "objective"
+        ]].copy()
+        display_tasks.columns = [
+            "Task", "Primary Skill", "Time %", "Annual Cost",
+            "Repetitive", "Deterministic", "Independent",
+            "Potential", "AI Type", "Objective"
+        ]
+        display_tasks["Annual Cost"] = display_tasks["Annual Cost"].apply(lambda x: f"${x:,.0f}")
+        st.dataframe(display_tasks, width="stretch", hide_index=True)
+
+        # Charts
+        col_left, col_right = st.columns(2)
+
+        with col_left:
+            potential_counts = tasks_df["potential"].value_counts().reindex(
+                ["High", "Medium", "Low"], fill_value=0)
+            fig_pot = go.Figure(go.Bar(
+                x=potential_counts.index,
+                y=potential_counts.values,
+                marker_color=["#2ca02c", "#ff7f0e", "#d62728"],
+                text=potential_counts.values,
+                textposition="outside"
+            ))
+            fig_pot.update_layout(
+                title="Tasks by Redeployment Potential",
+                yaxis_title="Number of Tasks",
+                height=350,
+                showlegend=False
+            )
+            st.plotly_chart(fig_pot, width="stretch")
+
+        with col_right:
+            ai_counts = tasks_df["ai_type"].value_counts()
+            fig_ai = go.Figure(go.Pie(
+                labels=ai_counts.index,
+                values=ai_counts.values,
+                hole=0.4
+            ))
+            fig_ai.update_layout(
+                title="Suggested AI Type for Tasks",
+                height=350
+            )
+            st.plotly_chart(fig_ai, width="stretch")
+
+        if st.button("🗑️ Clear All Tasks"):
+            st.session_state.tasks = []
+            st.rerun()
+
+    else:
+        st.info("Add tasks above to begin your task deconstruction analysis.")
+
 
 # Footer
 st.markdown("---")
