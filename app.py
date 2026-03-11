@@ -1,5 +1,5 @@
 """
-AI Investment ROI Calculator
+AI Investment ROI Calculator and Work Redesigner
 Emphasizes the critical role of work design in realizing AI value
 """
 
@@ -12,13 +12,13 @@ import numpy as np
 
 # Page configuration
 st.set_page_config(
-    page_title="AI ROI Calculator",
+    page_title="AI Investment ROI Calculator and Work Redesigner",
     page_icon="🤖",
     layout="wide"
 )
 
 # Title and introduction
-st.title("🤖 AI Investment ROI Calculator")
+st.title("🤖 AI Investment ROI Calculator and Work Redesigner")
 st.markdown("""
 ### The Value of AI Depends on Work Design, Not Just Technology
 
