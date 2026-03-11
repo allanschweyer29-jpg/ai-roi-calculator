@@ -1119,6 +1119,8 @@ with tab7:
                 return "RPA"
             elif row["independent"] >= 60 and row["deterministic"] >= 55:
                 return "Machine Learning"
+            elif row["deterministic"] < 50 and row["repetitive"] >= 40:
+                return "AI Agent"
             else:
                 return "GenAI"
 
@@ -1242,6 +1244,8 @@ with tab8:
                 return "RPA"
             elif row["independent"] >= 60 and row["deterministic"] >= 55:
                 return "Machine Learning"
+            elif row["deterministic"] < 50 and row["repetitive"] >= 40:
+                return "AI Agent"
             else:
                 return "GenAI"
 
@@ -1381,15 +1385,17 @@ with tab9:
         rpa_score = (rec_repetitive * 0.40 + rec_deterministic * 0.35 + rec_volume * 0.15 + (100 - rec_language) * 0.10)
         ml_score = (rec_data_richness * 0.40 + rec_volume * 0.25 + rec_deterministic * 0.20 + (100 - rec_language) * 0.15)
         genai_score = (rec_language * 0.40 + (100 - rec_deterministic) * 0.25 + rec_data_richness * 0.15 + rec_repetitive * 0.20)
+        agent_score = ((100 - rec_deterministic) * 0.30 + rec_repetitive * 0.25 + rec_language * 0.25 + rec_volume * 0.20)
 
-        scores = {"RPA": rpa_score, "Machine Learning": ml_score, "GenAI": genai_score}
+        scores = {"RPA": rpa_score, "Machine Learning": ml_score, "GenAI": genai_score, "AI Agent": agent_score}
         recommended = max(scores, key=scores.get)
 
-        color_map = {"RPA": "#1f77b4", "Machine Learning": "#2ca02c", "GenAI": "#ff7f0e"}
+        color_map = {"RPA": "#1f77b4", "Machine Learning": "#2ca02c", "GenAI": "#ff7f0e", "AI Agent": "#9467bd"}
         descriptions = {
             "RPA": "Robotic Process Automation — best for high-volume, rule-based, repetitive tasks with structured data and clear steps. Executes the same process reliably at scale.",
             "Machine Learning": "Machine Learning — best when you have rich historical data and need the system to learn patterns, make predictions, or classify inputs. Improves over time.",
-            "GenAI": "Generative AI — best for tasks involving language, content, nuance, or creativity. Handles variability well and can draft, summarize, analyze, and converse."
+            "GenAI": "Generative AI — best for tasks involving language, content, nuance, or creativity. Handles variability well and can draft, summarize, analyze, and converse.",
+            "AI Agent": "AI Agent — best for multi-step workflows that require planning, judgment, and tool use. Operates autonomously across systems to complete tasks that are too variable for RPA but too repetitive for pure GenAI."
         }
         when_to_use = {
             "RPA": [
@@ -1412,12 +1418,20 @@ with tab9:
                 "Answering employee or customer questions",
                 "Policy and procedure interpretation",
                 "Performance review drafting"
+            ],
+            "AI Agent": [
+                "End-to-end research and synthesis workflows",
+                "Automated inbox triage and response routing",
+                "Multi-system data gathering and reporting",
+                "Onboarding or offboarding task orchestration",
+                "Customer issue resolution across tools"
             ]
         }
         watch_out = {
             "RPA": "Fragile when underlying systems change. Requires clean, structured inputs. High maintenance if processes evolve frequently.",
             "Machine Learning": "Requires substantial labeled historical data. Results degrade if underlying patterns shift. Needs ongoing monitoring.",
-            "GenAI": "Can hallucinate or produce plausible-sounding errors. Requires human review for high-stakes outputs. Cost scales with usage."
+            "GenAI": "Can hallucinate or produce plausible-sounding errors. Requires human review for high-stakes outputs. Cost scales with usage.",
+            "AI Agent": "Harder to audit and debug than simpler automation. Errors can compound across steps. Requires guardrails, escalation paths, and human-in-the-loop checkpoints for high-stakes decisions."
         }
 
         # Primary recommendation
@@ -1437,7 +1451,7 @@ with tab9:
         st.warning(f"**Watch out for:** {watch_out[recommended]}")
 
     st.markdown("---")
-    st.subheader("How All Three Options Score for This Task")
+    st.subheader("How All Four Options Score for This Task")
 
     fig_scores = go.Figure(go.Bar(
         x=list(scores.keys()),
@@ -1457,19 +1471,23 @@ with tab9:
     st.markdown("---")
     st.subheader("Quick Reference: When to Use Each")
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.markdown(f"#### 🔵 RPA")
+        st.markdown("#### 🔵 RPA")
         st.markdown("**Best when:** High volume, clear rules, structured data, no judgment needed")
         st.markdown("**Avoid when:** Processes change frequently or inputs are unstructured")
     with c2:
-        st.markdown(f"#### 🟢 Machine Learning")
+        st.markdown("#### 🟢 Machine Learning")
         st.markdown("**Best when:** Rich historical data exists and you need prediction or pattern recognition")
         st.markdown("**Avoid when:** Data is scarce, the outcome is purely rule-based, or explainability is critical")
     with c3:
-        st.markdown(f"#### 🟠 GenAI")
+        st.markdown("#### 🟠 GenAI")
         st.markdown("**Best when:** Task involves language, nuance, variability, or content generation")
         st.markdown("**Avoid when:** Accuracy is critical with no human review, or data is purely numerical")
+    with c4:
+        st.markdown("#### 🟣 AI Agent")
+        st.markdown("**Best when:** Multi-step workflows require planning, judgment, and action across systems")
+        st.markdown("**Avoid when:** Tasks are purely deterministic, high-stakes with no human review, or audit trails are essential")
 
 
 # Footer
