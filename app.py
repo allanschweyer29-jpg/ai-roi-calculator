@@ -242,7 +242,7 @@ df = pd.DataFrame(results)
 df["cumulative_value"] = df["net_value"].cumsum()
 
 # Main content area
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "📈 Executive Summary",
     "💰 Value Over Time",
     "🔍 Sensitivity Analysis",
@@ -250,7 +250,8 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📊 Detailed Breakdown",
     "📋 Metrics Guide",
     "🔬 Task Deconstruction",
-    "🏗️ Redeployment Dashboard"
+    "🏗️ Redeployment Dashboard",
+    "🤖 AI Type Recommender"
 ])
 
 with tab1:
@@ -1341,6 +1342,134 @@ with tab8:
             height=350
         )
         st.plotly_chart(fig_hrs, width="stretch")
+
+
+with tab9:
+    st.header("AI Type Recommender")
+    st.markdown("""
+    Describe a specific task and get a recommendation for the most appropriate AI approach,
+    with a full explanation of the tradeoffs between RPA, GenAI, and Machine Learning.
+    """)
+
+    col_form, col_result = st.columns([1, 1])
+
+    with col_form:
+        st.subheader("Describe the Task")
+        rec_task_name = st.text_input("Task Name", placeholder="e.g. Invoice processing")
+
+        st.markdown("**Rate each dimension**")
+        rec_repetitive = st.slider("Repetitive (vs. Variable)", 0, 100, 50,
+                                   help="100 = same steps every time; 0 = different every time",
+                                   key="rec_rep")
+        rec_deterministic = st.slider("Deterministic (vs. Probabilistic)", 0, 100, 50,
+                                      help="100 = clear rules; 0 = requires human judgment",
+                                      key="rec_det")
+        rec_volume = st.slider("Volume (transactions per month)", 0, 100, 50,
+                               help="100 = very high volume; 0 = rare/one-off",
+                               key="rec_vol")
+        rec_data_richness = st.slider("Data Richness (historical data available)", 0, 100, 50,
+                                      help="100 = lots of labeled historical data; 0 = little or none",
+                                      key="rec_data")
+        rec_language = st.slider("Language/Content Complexity", 0, 100, 50,
+                                 help="100 = involves complex text, nuance, or creativity; 0 = structured data only",
+                                 key="rec_lang")
+
+    with col_result:
+        st.subheader("Recommendation")
+
+        # Scoring logic
+        rpa_score = (rec_repetitive * 0.40 + rec_deterministic * 0.35 + rec_volume * 0.15 + (100 - rec_language) * 0.10)
+        ml_score = (rec_data_richness * 0.40 + rec_volume * 0.25 + rec_deterministic * 0.20 + (100 - rec_language) * 0.15)
+        genai_score = (rec_language * 0.40 + (100 - rec_deterministic) * 0.25 + rec_data_richness * 0.15 + rec_repetitive * 0.20)
+
+        scores = {"RPA": rpa_score, "Machine Learning": ml_score, "GenAI": genai_score}
+        recommended = max(scores, key=scores.get)
+
+        color_map = {"RPA": "#1f77b4", "Machine Learning": "#2ca02c", "GenAI": "#ff7f0e"}
+        descriptions = {
+            "RPA": "Robotic Process Automation — best for high-volume, rule-based, repetitive tasks with structured data and clear steps. Executes the same process reliably at scale.",
+            "Machine Learning": "Machine Learning — best when you have rich historical data and need the system to learn patterns, make predictions, or classify inputs. Improves over time.",
+            "GenAI": "Generative AI — best for tasks involving language, content, nuance, or creativity. Handles variability well and can draft, summarize, analyze, and converse."
+        }
+        when_to_use = {
+            "RPA": [
+                "Data entry and form processing",
+                "Invoice and expense processing",
+                "Report generation from fixed sources",
+                "System-to-system data transfer",
+                "Compliance checks against fixed rules"
+            ],
+            "Machine Learning": [
+                "Demand forecasting and planning",
+                "Anomaly and fraud detection",
+                "Employee attrition prediction",
+                "Customer churn scoring",
+                "Document classification at scale"
+            ],
+            "GenAI": [
+                "Drafting emails, reports, proposals",
+                "Summarizing documents and meetings",
+                "Answering employee or customer questions",
+                "Policy and procedure interpretation",
+                "Performance review drafting"
+            ]
+        }
+        watch_out = {
+            "RPA": "Fragile when underlying systems change. Requires clean, structured inputs. High maintenance if processes evolve frequently.",
+            "Machine Learning": "Requires substantial labeled historical data. Results degrade if underlying patterns shift. Needs ongoing monitoring.",
+            "GenAI": "Can hallucinate or produce plausible-sounding errors. Requires human review for high-stakes outputs. Cost scales with usage."
+        }
+
+        # Primary recommendation
+        rec_color = color_map[recommended]
+        st.markdown(f"""
+        <div style="background-color:{rec_color}22; border-left: 5px solid {rec_color};
+             padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+            <h3 style="color:{rec_color}; margin:0;">Recommended: {recommended}</h3>
+            <p style="margin-top:8px;">{descriptions[recommended]}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("**Best used for tasks like:**")
+        for example in when_to_use[recommended]:
+            st.markdown(f"• {example}")
+
+        st.warning(f"**Watch out for:** {watch_out[recommended]}")
+
+    st.markdown("---")
+    st.subheader("How All Three Options Score for This Task")
+
+    fig_scores = go.Figure(go.Bar(
+        x=list(scores.keys()),
+        y=list(scores.values()),
+        marker_color=[color_map[k] for k in scores.keys()],
+        text=[f"{v:.0f}" for v in scores.values()],
+        textposition="outside"
+    ))
+    fig_scores.update_layout(
+        yaxis_title="Fit Score (0-100)",
+        height=350,
+        showlegend=False,
+        yaxis_range=[0, 110]
+    )
+    st.plotly_chart(fig_scores, width="stretch")
+
+    st.markdown("---")
+    st.subheader("Quick Reference: When to Use Each")
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown(f"#### 🔵 RPA")
+        st.markdown("**Best when:** High volume, clear rules, structured data, no judgment needed")
+        st.markdown("**Avoid when:** Processes change frequently or inputs are unstructured")
+    with c2:
+        st.markdown(f"#### 🟢 Machine Learning")
+        st.markdown("**Best when:** Rich historical data exists and you need prediction or pattern recognition")
+        st.markdown("**Avoid when:** Data is scarce, the outcome is purely rule-based, or explainability is critical")
+    with c3:
+        st.markdown(f"#### 🟠 GenAI")
+        st.markdown("**Best when:** Task involves language, nuance, variability, or content generation")
+        st.markdown("**Avoid when:** Accuracy is critical with no human review, or data is purely numerical")
 
 
 # Footer
